@@ -36,7 +36,7 @@ func (s *Server) HandleGetBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleBatchAudit(w http.ResponseWriter, r *http.Request) {
-	events, err := s.service.AuditEvents(r.PathValue("batchID"))
+	events, err := s.service.AuditEventsContext(r.Context(), r.PathValue("batchID"))
 	if err != nil {
 		s.handleServiceError(w, err)
 		return

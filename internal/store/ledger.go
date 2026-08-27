@@ -3,6 +3,7 @@ package store
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -262,6 +263,15 @@ func (l *Ledger) Events(batchID string) ([]Event, error) {
 		}
 	}
 	return events, scanner.Err()
+}
+
+func (l *Ledger) EventsContext(ctx context.Context, batchID string) ([]Event, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+	return l.Events(batchID)
 }
 
 func (l *Ledger) Stats() (int64, string, int) {

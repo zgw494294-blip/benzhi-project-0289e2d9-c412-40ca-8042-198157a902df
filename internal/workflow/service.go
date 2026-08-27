@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -282,6 +283,15 @@ func (s *Service) AuditEvents(batchID string) ([]store.Event, error) {
 		}
 	}
 	return s.store.Events(batchID)
+}
+
+func (s *Service) AuditEventsContext(ctx context.Context, batchID string) ([]store.Event, error) {
+	if batchID != "" {
+		if _, err := s.store.GetBatch(batchID); err != nil {
+			return nil, err
+		}
+	}
+	return s.store.EventsContext(ctx, batchID)
 }
 
 func (s *Service) CheckReleaseReadiness(batchID string) (ReleaseReadiness, error) {
