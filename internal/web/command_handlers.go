@@ -31,7 +31,9 @@ func (s *Server) HandleRegisterResult(w http.ResponseWriter, r *http.Request) {
 	}
 	command.BatchID = r.PathValue("batchID")
 	applyIdempotencyHeader(r, &command.Meta)
-	s.execute(w, func() (workflow.CommandResult, error) { return s.service.RegisterResult(command) })
+	s.execute(w, func() (workflow.CommandResult, error) {
+		return s.service.RegisterResultContext(r.Context(), command)
+	})
 }
 
 func (s *Server) HandleQualityCheck(w http.ResponseWriter, r *http.Request) {

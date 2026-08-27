@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -173,6 +174,24 @@ func (s *Service) RegisterResult(command RegisterResultCommand) (CommandResult, 
 		}, now)
 		return err
 	})
+}
+
+func (s *Service) RegisterResultContext(ctx context.Context, command RegisterResultCommand) (CommandResult, error) {
+	type outcome struct {
+		result CommandResult
+		err    error
+	}
+	completed := make(chan outcome, 1)
+	go func() {
+		result, err := s.RegisterResult(command)
+		completed <- outcome{result: result, err: err}
+	}()
+	select {
+	case <-ctx.Done():
+		return CommandResult{}, ctx.Err()
+	case value := <-completed:
+		return value.result, value.err
+	}
 }
 
 func (s *Service) RunQualityCheck(command QualityCheckCommand) (CommandResult, error) {
