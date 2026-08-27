@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"errors"
 	"time"
 )
@@ -28,9 +27,7 @@ func (b *SamplingBatch) Clone() *SamplingBatch {
 	if b == nil {
 		return nil
 	}
-	raw, _ := json.Marshal(b)
-	var copied SamplingBatch
-	_ = json.Unmarshal(raw, &copied)
+	copied := *b
 	return &copied
 }
 

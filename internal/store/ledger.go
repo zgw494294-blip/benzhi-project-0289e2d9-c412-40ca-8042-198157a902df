@@ -218,7 +218,7 @@ func (l *Ledger) ListBatches() []*domain.SamplingBatch {
 	defer l.mu.RUnlock()
 	items := make([]*domain.SamplingBatch, 0, len(l.batches))
 	for _, batch := range l.batches {
-		items = append(items, batch.Clone())
+		items = append(items, batch)
 	}
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].UpdatedAt.Equal(items[j].UpdatedAt) {
