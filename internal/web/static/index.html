@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="河流环境 DNA 样本质量审查、专家复核与科研发布凭据工作台">
+  <title>河流 eDNA 样本质量审查工作台</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" data-nav><span class="brand-mark">eDNA</span><span>河流样本质量审查工作台</span></a>
+    <nav aria-label="主导航">
+      <a href="/" data-nav>批次</a>
+      <a href="/batches/new" data-nav>新建批次</a>
+      <a href="/verify" data-nav>验证凭据</a>
+    </nav>
+  </header>
+  <main id="app" tabindex="-1">
+    <section class="loading"><div class="spinner"></div><p>正在读取事件账本投影…</p></section>
+  </main>
+  <aside id="toast" role="status" aria-live="polite"></aside>
+  <footer>
+    <span>所有写入均采用批次版本控制与幂等键</span>
+    <span id="health">检查服务状态中</span>
+  </footer>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>
