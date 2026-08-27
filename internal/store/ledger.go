@@ -70,15 +70,16 @@ type diskSnapshot struct {
 }
 
 type Ledger struct {
-	mu           sync.RWMutex
-	directory    string
-	ledgerPath   string
-	snapshotPath string
-	file         *os.File
-	sequence     int64
-	lastDigest   string
-	batches      map[string]*domain.SamplingBatch
-	idempotency  map[string]idempotentEntry
+	mu               sync.RWMutex
+	directory        string
+	ledgerPath       string
+	snapshotPath     string
+	file             *os.File
+	sequence         int64
+	lastDigest       string
+	batches          map[string]*domain.SamplingBatch
+	idempotency      map[string]idempotentEntry
+	credentialMisses map[string]struct{}
 }
 
 func Open(directory string) (*Ledger, error) {
@@ -96,6 +97,7 @@ func Open(directory string) (*Ledger, error) {
 	ledger := &Ledger{
 		directory: directory, ledgerPath: ledgerPath, snapshotPath: filepath.Join(directory, "snapshot.json"),
 		file: file, batches: make(map[string]*domain.SamplingBatch), idempotency: make(map[string]idempotentEntry),
+		credentialMisses: make(map[string]struct{}),
 	}
 	if err := ledger.replay(); err != nil {
 		_ = file.Close()
@@ -230,14 +232,18 @@ func (l *Ledger) ListBatches() []*domain.SamplingBatch {
 }
 
 func (l *Ledger) FindCredential(credentialID string) (*domain.ReleaseCredential, error) {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if _, cachedMiss := l.credentialMisses[credentialID]; cachedMiss {
+		return nil, ErrNotFound
+	}
 	for _, batch := range l.batches {
 		if batch.Credential != nil && batch.Credential.CredentialID == credentialID {
 			credential := *batch.Credential
 			return &credential, nil
 		}
 	}
+	l.credentialMisses[credentialID] = struct{}{}
 	return nil, ErrNotFound
 }
 
