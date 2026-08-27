@@ -183,6 +183,16 @@ func (l *Ledger) Commit(eventType, idempotencyKey string, expectedVersion int64,
 		l.idempotency[compoundKey] = idempotentEntry{receipt: receipt, batch: batch.Clone()}
 	}
 	if err := l.writeSnapshotLocked(now); err != nil {
+		l.sequence = event.Sequence - 1
+		l.lastDigest = event.PreviousDigest
+		if exists {
+			l.batches[batch.BatchID] = current
+		} else {
+			delete(l.batches, batch.BatchID)
+		}
+		if idempotencyKey != "" {
+			delete(l.idempotency, compoundKey)
+		}
 		return Receipt{}, fmt.Errorf("事件已写入但快照更新失败: %w", err)
 	}
 	return receipt, nil
