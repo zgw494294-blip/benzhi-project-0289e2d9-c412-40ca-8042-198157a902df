@@ -79,6 +79,7 @@ type Ledger struct {
 	lastDigest   string
 	batches      map[string]*domain.SamplingBatch
 	idempotency  map[string]idempotentEntry
+	eventsCache  map[string][]Event
 }
 
 func Open(directory string) (*Ledger, error) {
@@ -95,7 +96,7 @@ func Open(directory string) (*Ledger, error) {
 	}
 	ledger := &Ledger{
 		directory: directory, ledgerPath: ledgerPath, snapshotPath: filepath.Join(directory, "snapshot.json"),
-		file: file, batches: make(map[string]*domain.SamplingBatch), idempotency: make(map[string]idempotentEntry),
+		file: file, batches: make(map[string]*domain.SamplingBatch), idempotency: make(map[string]idempotentEntry), eventsCache: make(map[string][]Event),
 	}
 	if err := ledger.replay(); err != nil {
 		_ = file.Close()
@@ -242,8 +243,11 @@ func (l *Ledger) FindCredential(credentialID string) (*domain.ReleaseCredential,
 }
 
 func (l *Ledger) Events(batchID string) ([]Event, error) {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if cached, ok := l.eventsCache[batchID]; ok {
+		return cloneEvents(cached), nil
+	}
 	if _, err := l.file.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
@@ -261,7 +265,17 @@ func (l *Ledger) Events(batchID string) ([]Event, error) {
 			events = append(events, event)
 		}
 	}
-	return events, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	l.eventsCache[batchID] = cloneEvents(events)
+	return events, nil
+}
+
+func cloneEvents(events []Event) []Event {
+	cloned := make([]Event, len(events))
+	copy(cloned, events)
+	return cloned
 }
 
 func (l *Ledger) Stats() (int64, string, int) {
