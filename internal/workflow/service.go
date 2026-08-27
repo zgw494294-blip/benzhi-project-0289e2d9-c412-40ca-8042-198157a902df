@@ -29,6 +29,22 @@ type CommandResult struct {
 	Receipt store.Receipt         `json:"receipt"`
 }
 
+type commandFailure struct {
+	operation string
+	message   string
+}
+
+func newCommandFailure(operation string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return &commandFailure{operation: operation, message: err.Error()}
+}
+
+func (e *commandFailure) Error() string {
+	return fmt.Sprintf("%s 执行失败: %s", e.operation, e.message)
+}
+
 type CreateBatchCommand struct {
 	Meta         CommandMeta           `json:"meta"`
 	BatchID      string                `json:"batchID"`
@@ -354,7 +370,7 @@ func (s *Service) change(batchID string, meta CommandMeta, eventType string, mut
 	}
 	receipt, err := s.store.Commit(eventType, meta.IdempotencyKey, meta.ExpectedVersion, batch, now)
 	if err != nil {
-		return CommandResult{}, err
+		return CommandResult{}, newCommandFailure(eventType, err)
 	}
 	return CommandResult{Batch: batch.Clone(), Receipt: receipt}, nil
 }
