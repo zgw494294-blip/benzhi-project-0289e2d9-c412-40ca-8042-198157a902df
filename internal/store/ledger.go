@@ -79,6 +79,7 @@ type Ledger struct {
 	lastDigest   string
 	batches      map[string]*domain.SamplingBatch
 	idempotency  map[string]idempotentEntry
+	credentials  map[string]string
 }
 
 func Open(directory string) (*Ledger, error) {
@@ -96,6 +97,7 @@ func Open(directory string) (*Ledger, error) {
 	ledger := &Ledger{
 		directory: directory, ledgerPath: ledgerPath, snapshotPath: filepath.Join(directory, "snapshot.json"),
 		file: file, batches: make(map[string]*domain.SamplingBatch), idempotency: make(map[string]idempotentEntry),
+		credentials: make(map[string]string),
 	}
 	if err := ledger.replay(); err != nil {
 		_ = file.Close()
@@ -178,6 +180,9 @@ func (l *Ledger) Commit(eventType, idempotencyKey string, expectedVersion int64,
 	l.sequence = event.Sequence
 	l.lastDigest = event.Digest
 	l.batches[batch.BatchID] = batch.Clone()
+	if batch.Credential != nil {
+		l.credentials[batch.Credential.CredentialID] = batch.BatchID
+	}
 	receipt := Receipt{Sequence: event.Sequence, EventID: event.EventID, BatchID: batch.BatchID, BatchVersion: batch.Version, Digest: event.Digest}
 	if idempotencyKey != "" {
 		l.idempotency[compoundKey] = idempotentEntry{receipt: receipt, batch: batch.Clone()}
@@ -232,13 +237,16 @@ func (l *Ledger) ListBatches() []*domain.SamplingBatch {
 func (l *Ledger) FindCredential(credentialID string) (*domain.ReleaseCredential, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	for _, batch := range l.batches {
-		if batch.Credential != nil && batch.Credential.CredentialID == credentialID {
-			credential := *batch.Credential
-			return &credential, nil
-		}
+	batchID, ok := l.credentials[credentialID]
+	if !ok {
+		return nil, ErrNotFound
 	}
-	return nil, ErrNotFound
+	batch := l.batches[batchID]
+	if batch == nil || batch.Credential == nil || batch.Credential.CredentialID != credentialID {
+		return nil, ErrNotFound
+	}
+	credential := *batch.Credential
+	return &credential, nil
 }
 
 func (l *Ledger) Events(batchID string) ([]Event, error) {
