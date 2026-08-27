@@ -274,18 +274,27 @@ func (l *Ledger) replay() error {
 	if _, err := l.file.Seek(0, io.SeekStart); err != nil {
 		return fmt.Errorf("定位事件账本: %w", err)
 	}
-	scanner := bufio.NewScanner(l.file)
-	scanner.Buffer(make([]byte, 64*1024), 8*1024*1024)
+	reader := bufio.NewReaderSize(l.file, 8*1024*1024)
 	var previous string
 	var sequence int64
 	lineNumber := 0
-	for scanner.Scan() {
+	for {
+		line, readErr := reader.ReadSlice('\n')
+		if errors.Is(readErr, io.EOF) {
+			break
+		}
+		if errors.Is(readErr, bufio.ErrBufferFull) {
+			return fmt.Errorf("事件账本第 %d 行超过大小限制", lineNumber+1)
+		}
+		if readErr != nil {
+			return fmt.Errorf("读取事件账本第 %d 行: %w", lineNumber+1, readErr)
+		}
 		lineNumber++
-		if len(bytes.TrimSpace(scanner.Bytes())) == 0 {
+		if len(bytes.TrimSpace(line)) == 0 {
 			return fmt.Errorf("事件账本第 %d 行为空", lineNumber)
 		}
 		var event Event
-		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
+		if err := json.Unmarshal(line, &event); err != nil {
 			return fmt.Errorf("解析事件账本第 %d 行: %w", lineNumber, err)
 		}
 		if event.SchemaVersion != schemaVersion {
@@ -318,9 +327,6 @@ func (l *Ledger) replay() error {
 		}
 		sequence = event.Sequence
 		previous = event.Digest
-	}
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("读取事件账本: %w", err)
 	}
 	l.sequence = sequence
 	l.lastDigest = previous
